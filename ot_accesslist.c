@@ -111,34 +111,26 @@ int accesslist_hashisvalid( ot_hash hash ) {
 #endif
 }
 
-static void * accesslist_worker( void * args ) {
-  int sig;
-  sigset_t   signal_mask;
-
-  sigemptyset(&signal_mask);
-  sigaddset(&signal_mask, SIGHUP);
-
-  (void)args;
-
-  while( 1 ) {
-
+void sighup_handler(int signo) {
+  if (signo == SIGHUP) {
     /* Initial attempt to read accesslist */
     accesslist_readfile( );
-
-    /* Wait for signals */
-    while( sigwait (&signal_mask, &sig) != 0 && sig != SIGHUP );
   }
-  return NULL;
 }
 
 static pthread_t thread_id;
 void accesslist_init( ) {
+  /* Setup SIGHUP singnal handler */
+  if (signal( SIGHUP, sighup_handler) == SIG_ERR ) {
+    fprintf( stderr, "Unable to trap SIGHUP\n" );
+  }
+
   pthread_mutex_init(&g_accesslist_mutex, NULL);
-  pthread_create( &thread_id, NULL, accesslist_worker, NULL );
+
+  accesslist_readfile( );
 }
 
 void accesslist_deinit( void ) {
-  pthread_cancel( thread_id );
   pthread_mutex_destroy(&g_accesslist_mutex);
   free( g_accesslist );
   g_accesslist = 0;
